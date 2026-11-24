@@ -7,7 +7,7 @@ export async function POST(req: Request) {
 
     const validCode = (process.env.STUDENT_ACCESS_CODE || 'AI4444').trim().toUpperCase();
 
-   if (accessCode?.trim().toUpperCase() !== validCode) {
+    if (accessCode?.trim().toUpperCase() !== validCode) {
       return NextResponse.json(
         { error: 'کۆدی چوونەژوورەوە هەڵەیە! تکایە دڵنیابەرەوە لە کۆدەکەت.' },
         { status: 401 }
@@ -34,23 +34,42 @@ export async function POST(req: Request) {
         ? knowledgeData.map((k) => `[${k.category}]: ${k.content}`).join('\n')
         : 'هێشتا هیچ زانیارییەکی تایبەت لە لایەن بەڕێوەبەرەوە زیاد نەکراوە.';
 
-    const systemInstruction = `تۆ یاریدەدەری زیرەکی فەرمی "پەیمانگای فام" (Fam Institute)یت. بە زمانی کوردیی سۆرانییەکی ڕەوان و دۆستانە وەڵامی پرسیاری خوێندکارەکە بدەرەوە کە ناوی "${studentName}"ـە.
+    const cleanName = studentName.trim();
+    const isPresident =
+      cleanName.includes('دانەر') ||
+      cleanName.toLowerCase().includes('danar') ||
+      cleanName.toLowerCase().includes('outis');
 
---- زانیارییەکانی پەیمانگای فام ---
+    const roleInstruction = isPresident
+      ? `ئەم بەکارهێنەرە بەڕێز "${cleanName}"ـە کە سەرۆکی بەشی زیرەکی دەستکردە (AI) لە پەیمانگای فام. بە ڕێزێکی زۆر تایبەت و شکۆدارەوە وەک سەرۆکی بەش مامەڵەی لەگەڵ بکە و هەر فەرمان یان پرسیارێکی هەبوو بە باشترین شێوە جێبەجێی بکە (هەرگیز وشەی "نوێنەر" بەکارمەهێنە).`
+      : `ئەم بەکارهێنەرە خوێندکارێکی خۆشەویستی پەیمانگای فامە بە ناوی "${cleanName}". ڕاستەوخۆ بە ناوی خۆیەوە بە گەرمی و ڕێزەوە بەخێرهاتنی بکە و وەک مامۆستا و یاریدەدەرێکی زۆر زیرەک هاوکاری بکە.`;
+
+    const systemInstruction = `تۆ زیرەکترین یاریدەدەری فەرمی "پەیمانگای فام" (Fam Institute)یت بۆ بەشی زیرەکی دەستکرد (AI) و زانستی کۆمپیوتەر. بە زمانی کوردیی سۆرانییەکی زۆر ڕەوان، جوان و دۆستانە وەڵام بدەرەوە.
+
+${roleInstruction}
+
+--- زانیاری و ڕێنماییەکانی پەیمانگای فام ---
 ${knowledgeBase}
-----------------------------------
+---------------------------------------------
 
-تێبینی گرنگ: ئەگەر پرسیارێک پەیوەندی بە کاروباری ناوخۆیی و زانیاریی تایبەتی پەیمانگای فامەوە هەبوو و لە زانیارییەکانی سەرەوەدا نەبوو، بە ڕێزەوە بڵێ هێشتا لە لایەن بەڕێوەبەرایەتی پەیمانگاوە نوێ نەکراوەتەوە. بۆ پرسیارە زانستییەکانی پرۆگرامینگ و زیرەکی دەستکرد یارمەتییەکی زۆر باشی بدە.`;
+توانا و ئەرکەکانت:
+1. پسپۆڕی باڵایت لە هەموو بوارەکانی کۆمپیوتەر، زیرەکی دەستکرد (AI)، پرۆگرامسازی (Python, JavaScript, C++, Web Development)، داتابەیس، نێتۆرک، ئاسایشی زانیاری (Cybersecurity)، سیستەمەکانی کارپێکردن (Windows, Linux)، و هەموو وانە و بابەتەکانی خوێندن.
+2. کاتێک خوێندکار پرسیار لەسەر دەرسێک یان کۆدێک دەکات، بە شێوەیەکی سادە، قۆناغ بە قۆناغ، و بە نموونەی ڕوون و کرداری تێی بگەیەنە و هانی بدە.
+3. ئەگەر زانیارییەک لە بەشی "زانیاری و ڕێنماییەکانی پەیمانگای فام"ـی سەرەوەدا هەبوو، بە وردی جێبەجێی بکە و پشتی پێ ببەستە. ئەگەر پرسیارێک دەربارەی کاروباری ناوخۆیی و بڕیارە تایبەتەکانی پەیمانگا بوو و لە سەرەوەدا نەبوو، بە ڕێزەوە بڵێ هێشتا لە لایەن بەڕێوەبەرایەتی پەیمانگاوە نوێ نەکراوەتەوە.`;
+
+    // تەنها کۆتا ٦ پەیام دەنێردرێت بۆ پاراستنی سنووری تۆکن و خێرایی زیاتر
+    const recentHistory = (history || []).slice(-6);
 
     const messages = [
       { role: 'system', content: systemInstruction },
-      ...(history || []).map((msg: { role: string; text: string }) => ({
+      ...recentHistory.map((msg: { role: string; text: string }) => ({
         role: msg.role === 'user' ? 'user' : 'assistant',
         content: msg.text,
       })),
       { role: 'user', content: message },
     ];
-     const apiKey = process.env.GROQ_API_KEY?.trim();
+
+    const apiKey = process.env.GROQ_API_KEY?.trim();
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -58,9 +77,10 @@ ${knowledgeBase}
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-oss-120b',
+        model: 'llama-3.3-70b-versatile',
         messages: messages,
         temperature: 0.7,
+        max_tokens: 2048,
       }),
     });
 
@@ -74,7 +94,7 @@ ${knowledgeBase}
 
     await supabase.from('chat_logs').insert([
       {
-        student_name: studentName.trim(),
+        student_name: cleanName,
         question: message,
         answer: replyText,
       },
